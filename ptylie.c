@@ -40,7 +40,7 @@ struct args_s
   int fd2;
 };
 
-static const char * prog = "mksc";
+static const char * prog = "ptylie";
 static char *       scan = NULL; /* Private scan pointer. */
 
 static void
