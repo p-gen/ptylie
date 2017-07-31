@@ -586,7 +586,7 @@ main(int argc, char * argv[])
 {
   int      fd_master, fd_slave;
   int      opt;
-  int      fdl, fdc = NULL;
+  int      fdl, fdc = 0;
   unsigned n;
   int      end;
   unsigned width  = 0;
