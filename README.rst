@@ -15,6 +15,13 @@ Start a program in a pseudo terminal and:
 | http://rachid.koucha.free.fr/tech_corner/pty_pdip.html
 | https://github.com/larsbrinkhoff/pty-stdio
 
+Building
+========
+As git does not store the timestamps of the files it handles, I encourage
+you to use the provided *build.sh* script to build this program.
+
+Use it as you'd use for *configure*.
+
 Synopsis
 ========
 | ``ptylie [-l log_file]``
