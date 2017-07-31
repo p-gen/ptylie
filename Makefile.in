@@ -262,7 +262,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ptylie_SOURCES = ptylie.c
 #dist_man_MANS = ptylie.1
-EXTRA_DIST = LICENSE.rst README.rst build-aux version
+EXTRA_DIST = LICENSE.rst README.rst build-aux version .clang-format
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
