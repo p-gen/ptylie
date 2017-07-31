@@ -205,7 +205,8 @@ manage_io(void * args)
 
   for (;;)
   {
-    // Wait for data from standard input and master side of PTY
+    /* Wait for data from standard input and master side of PTY */
+    /* """""""""""""""""""""""""""""""""""""""""""""""""""""""" */
     FD_ZERO(&fd_in);
     FD_SET(0, &fd_in);
     FD_SET(fd_master, &fd_in);
@@ -213,11 +214,13 @@ manage_io(void * args)
     if (select(fd_master + 1, &fd_in, NULL, NULL, NULL) == -1)
       fatal("Error %d on select()", errno);
 
-    // If data on standard input
+    /* If data on standard input */
+    /* """"""""""""""""""""""""" */
     if (FD_ISSET(0, &fd_in))
       read_write("standard input", 0, fd_master, fdl);
 
-    // If data on master side of PTY
+    /* If data on master side of PTY */
+    /* """"""""""""""""""""""""""""" */
     if (FD_ISSET(fd_master, &fd_in))
       read_write("master pty", fd_master, 1, fdl);
   }
@@ -227,7 +230,7 @@ manage_io(void * args)
 
 /* ================================================================= */
 /* Injects keys in the slave's keyboard buffer, we need to have root */
-/* privileges to do that.                                            */                   
+/* privileges to do that.                                            */
 /* Manages special dirsectives introduces by \s, \S, \W and \u       */
 /* ================================================================= */
 static void *
@@ -275,7 +278,6 @@ inject_keys(void * args)
       switch (c)
       {
         case '\n':
-          // fprintf(stderr, "<ENTER>", tmp);
           goto loop;
 
         case '\\':
@@ -467,9 +469,9 @@ slave(int fd_slave, char ** argv)
   /* The slave side of the PTY becomes the standard input and outputs */
   /* of the child process.                                            */
   /* """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
-  close(0); // Close standard input (current terminal)
-  close(1); // Close standard output (current terminal)
-  close(2); // Close standard error (current terminal)
+  close(0); /* Close standard input (current terminal)  */
+  close(1); /* Close standard output (current terminal) */
+  close(2); /* Close standard error (current terminal)  */
 
   /* PTY becomes standard input (0) */
   /* """""""""""""""""""""""""""""" */
@@ -593,9 +595,9 @@ my_getopt(int argc, char * argv[], const char * optstring)
   return (c & 0377);
 }
 
-/* """"""""""""" */
+/* ============= */
 /* program entry */
-/* """"""""""""" */
+/* ============= */
 int
 main(int argc, char * argv[])
 {
