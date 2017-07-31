@@ -1,19 +1,17 @@
-#define _BSD_SOURCE
 #define _XOPEN_SOURCE 600
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#define __USE_BSD
+#include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
 #include <sys/select.h>
+#include <sys/time.h>
 #include <termios.h>
-#include <pthread.h>
+#include <unistd.h>
 
 static void
 usage(char * prog)
@@ -68,6 +66,23 @@ fatal(const char * message, ...)
   va_end(args);
 
   exit(1);
+}
+
+/* =========================================================== */
+/* Sets the the terminal fd in raw mode, returns -& on failure */
+/* =========================================================== */
+static int
+tty_raw(struct termios * attr, int fd)
+{
+  attr->c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  attr->c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+  attr->c_cflag &= ~(CSIZE | PARENB);
+  attr->c_cflag |= (CS8);
+  attr->c_oflag &= ~(OPOST);
+  attr->c_cc[VMIN]  = 1;
+  attr->c_cc[VTIME] = 0;
+
+  return tcsetattr(fd, TCSANOW, attr);
 }
 
 /* ================================= */
@@ -171,8 +186,8 @@ set_terminal(int fd_master, unsigned width, unsigned height)
     /* Set RAW mode on stdin */
     /* """"""""""""""""""""" */
     new_termios = old_termios;
-    cfmakeraw(&new_termios);
-    tcsetattr(0, TCSANOW, &new_termios);
+    if (tty_raw(&new_termios, 0) == -1)
+      fatal("Cannot set fd 0 in raw mode");
   }
 }
 
