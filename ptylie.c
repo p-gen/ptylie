@@ -132,23 +132,10 @@ read_write(const char * name, int in, int out, int log)
   write(log, input, rc);
 }
 
-/* ======================= */
-/* Terminal initialization */
-/* ======================= */
 static void
-set_terminal(int fd_master, unsigned width, unsigned height)
+set_terminal_size(int fd, unsigned width, unsigned height)
 {
-  struct termios   new_termios;
-  struct winsize   ws;
-  int              rc;
-  struct sigaction sa;
-
-  if (isatty(0))
-    fd_termios = 0;
-  else if (isatty(1))
-    fd_termios = 1;
-  else
-    return;
+  struct winsize ws;
 
   /* Set the default terminal geometry */
   /* """"""""""""""""""""""""""""""""" */
@@ -162,7 +149,25 @@ set_terminal(int fd_master, unsigned width, unsigned height)
   /* """"""""""""""""""""""""""""" */
   ws.ws_row = height;
   ws.ws_col = width;
-  ioctl(fd_master, TIOCSWINSZ, &ws);
+  ioctl(fd, TIOCSWINSZ, &ws);
+}
+
+/* ======================= */
+/* Terminal initialization */
+/* ======================= */
+static void
+set_terminal(int fd)
+{
+  struct termios   new_termios;
+  int              rc;
+  struct sigaction sa;
+
+  if (isatty(0))
+    fd_termios = 0;
+  else if (isatty(1))
+    fd_termios = 1;
+  else
+    return;
 
   /* Save the defaults parameters to be able to restore then on exit */
   /* and in case of reception of an INT signal.                      */
@@ -720,13 +725,15 @@ main(int argc, char * argv[])
 
   fd_master = open_master();
 
+  /* Initialize the terminal */
+  /* """"""""""""""""""""""" */
+  set_terminal(fd_master);
+
   /* Open the slave side of the PTY */
   /* """""""""""""""""""""""""""""" */
   fd_slave = open(ptsname(fd_master), O_RDWR);
 
-  /* Initialize the terminal */
-  /* """"""""""""""""""""""" */
-  set_terminal(fd_slave, width, height);
+  set_terminal_size(fd_slave, width, height);
 
   /* Create the child process */
   /* """""""""""""""""""""""" */
