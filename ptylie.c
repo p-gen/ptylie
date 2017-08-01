@@ -358,7 +358,7 @@ inject_keys(void * args)
           ioctl(fd, TIOCSWINSZ, &ws);
           goto loop;
 
-        case 'u': /* for raw hexadecimal UTF-8 injection */
+        case 'u': /* for raw hexadecimal UTF-8 injection \u[xxyyzztt]*/
           len  = 0;
           rc   = 0;
           data = '\0';
