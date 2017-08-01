@@ -47,6 +47,15 @@ Some extra special characters are also understood:
     injects a sequence of up to 4 hexadecimal numbers (UTF-8).
 :``\W[XxY]``:
     resizes the slave's terminal to *X* columns and *Y* lines.
+:``\c[color sequence]``:
+    injects color codes, the trailing *m* is automatically added. (use
+    man console_codes for details).
+:``Cc``:
+    Injects the charcter ``CTRL-c`` where *c* is any character. The
+    result is the same whether the character is lowercase or uppercase.
+:``Mc``:
+    Injects the character *c* preceded by an escape (0x1b). This sequence
+    is generated when the ALT key is used.
 
 IMPORTANT NOTE
 ==============

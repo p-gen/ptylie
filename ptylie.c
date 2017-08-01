@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 600
 #include <errno.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -247,6 +248,8 @@ inject_keys(void * args)
   char          tmp[256];
   char          rows[4], cols[4];
   int           special    = 0;
+  int           meta       = 0;
+  int           control    = 0;
   long          sleep_time = 0;
 
   int fd  = ((struct args_s *)args)->fd1;
@@ -262,7 +265,6 @@ inject_keys(void * args)
 
     c = (unsigned char)data;
 
-    l = 1;
     if (!special)
     {
       if (c == '\\')
@@ -270,10 +272,29 @@ inject_keys(void * args)
         special = 1;
         continue;
       }
-      buf[0] = c;
+
+      if (meta)
+      {
+        meta   = 0;
+        buf[0] = 0x1b;
+        buf[1] = c;
+        l      = 2;
+      }
+      else if (control)
+      {
+        control = 0;
+        buf[0]  = toupper(c) - '@';
+        l       = 1;
+      }
+      else
+      {
+        buf[0] = c;
+        l      = 1;
+      }
     }
     else
     {
+      l       = 1;
       special = 0;
       switch (c)
       {
@@ -358,18 +379,43 @@ inject_keys(void * args)
           memcpy(buf, tmp, l);
           break;
 
-        case 'C': /* colour setting  - does not work :-( */
+        case 'c': /* colour setting \c[x;y;z] */
           buf[0] = 0x1b;
           buf[1] = '[';
           l      = 2;
+          len    = 0;
           rc     = 0;
-          while (rc != -1 && data != 'm' && l < 4096)
+          data   = '\0';
+          while (rc != -1 && data != ']' && len < 255)
           {
             rc = read(fdc, &data, 1);
             if (rc == -1 || rc == 0)
               break;
-            buf[l++] = (unsigned char)data;
+            scanf_buf[len++] = (unsigned char)data;
           }
+          scanf_buf[len] = '\0';
+          n              = sscanf((char *)scanf_buf, "[%8[0-9;]]", tmp);
+          if (n != 1)
+            exit(1);
+
+          while (l < len)
+          {
+            buf[l] = tmp[l - 2];
+            l++;
+          }
+          buf[l] = 'm';
+          l++;
+          break;
+
+        case 'M':
+          meta = 1;
+          continue;
+
+        case 'C':
+          control = 1;
+          continue;
+
+        case '%':
           break;
 
         case 'r':
