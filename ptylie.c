@@ -27,8 +27,10 @@ usage(char * prog)
   exit(EXIT_FAILURE);
 }
 
-static struct termios old_termios;
-static int            fd_termios;
+static struct termios old_termios_master;
+static struct termios old_termios_slave;
+
+static int fd_termios;
 
 char * my_optarg;     /* Global argument pointer. */
 int    my_optind = 0; /* Global argv index. */
@@ -47,7 +49,8 @@ static char *       scan = NULL; /* Private scan pointer. */
 static void
 cleanup(void)
 {
-  tcsetattr(fd_termios, TCSANOW, &old_termios);
+  tcsetattr(fd_termios, TCSANOW, &old_termios_master);
+  tcsetattr(fd_termios, TCSANOW, &old_termios_slave);
 }
 
 static void
@@ -83,7 +86,7 @@ tty_raw(struct termios * attr, int fd)
   attr->c_cc[VMIN]  = 1;
   attr->c_cc[VTIME] = 0;
 
-  return tcsetattr(fd, TCSANOW, attr);
+  return tcsetattr(fd, TCSAFLUSH, attr);
 }
 
 /* ================================= */
@@ -156,7 +159,7 @@ set_terminal_size(int fd, unsigned width, unsigned height)
 /* Terminal initialization */
 /* ======================= */
 static void
-set_terminal(int fd)
+set_terminal(int fd, struct termios * old_termios)
 {
   struct termios   new_termios;
   int              rc;
@@ -171,14 +174,9 @@ set_terminal(int fd)
 
   /* Save the defaults parameters to be able to restore then on exit */
   /* and in case of reception of an INT signal.                      */
-  rc = tcgetattr(fd_termios, &old_termios);
+  rc = tcgetattr(fd, old_termios);
   if (rc == -1)
     fatal("Error %d on tcgetattr()", errno);
-
-  /* Restore terminal on exit */
-  /* """""""""""""""""""""""" */
-  atexit(cleanup);
-  siginterrupt(SIGINT, 1);
 
   /* Setup the sighub handler */
   /* """""""""""""""""""""""" */
@@ -187,14 +185,11 @@ set_terminal(int fd)
   sigemptyset(&sa.sa_mask);
   sigaction(SIGINT, &sa, NULL);
 
-  if (fd_termios == 0)
-  {
-    /* Set RAW mode on stdin */
-    /* """"""""""""""""""""" */
-    new_termios = old_termios;
-    if (tty_raw(&new_termios, 0) == -1)
-      fatal("Cannot set fd 0 in raw mode");
-  }
+  /* Set RAW mode */
+  /* """""""""""" */
+  new_termios = *old_termios;
+  if (tty_raw(&new_termios, 0) == -1)
+    fatal("Cannot set %s in raw mode", fd);
 }
 
 /* ================================================================= */
@@ -725,13 +720,18 @@ main(int argc, char * argv[])
 
   fd_master = open_master();
 
-  /* Initialize the terminal */
-  /* """"""""""""""""""""""" */
-  set_terminal(fd_master);
-
   /* Open the slave side of the PTY */
   /* """""""""""""""""""""""""""""" */
   fd_slave = open(ptsname(fd_master), O_RDWR);
+
+  /* Initialize the terminal */
+  /* """"""""""""""""""""""" */
+  set_terminal(fd_master, &old_termios_master);
+  set_terminal(fd_slave, &old_termios_slave);
+
+  /* Restore terminal on exit */
+  /* """""""""""""""""""""""" */
+  atexit(cleanup);
 
   set_terminal_size(fd_slave, width, height);
 
