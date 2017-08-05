@@ -8,9 +8,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+/* For FIONREAD */
+#if defined(__sun)
+#include <sys/filio.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
 
