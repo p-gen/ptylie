@@ -92,7 +92,7 @@ tty_raw(struct termios * attr, int fd)
   attr->c_cc[VMIN]  = 1;
   attr->c_cc[VTIME] = 0;
 
-  return tcsetattr(fd, TCSAFLUSH, attr);
+  return tcsetattr(fd, TCSANOW, attr);
 }
 
 /* ================================= */
