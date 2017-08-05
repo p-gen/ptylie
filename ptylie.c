@@ -253,16 +253,27 @@ inject_keys(void * args)
   unsigned char scanf_buf[4096];
   char          tmp[256];
   char          rows[4], cols[4];
-  int           special    = 0;
-  int           meta       = 0;
-  int           control    = 0;
-  long          sleep_time = 0;
+  int           special      = 0;
+  int           meta         = 0;
+  int           control      = 0;
+  long          sleep_time   = 0;
+  time_t        sleep_time_s = 0;
+  long          sleep_time_n = 0;
 
   int fd  = ((struct args_s *)args)->fd1;
   int fdc = ((struct args_s *)args)->fd2;
 
   struct winsize ws;
 
+  /* Sleep for 1/10 s to let a chance to the child program to start.  */
+  /* If it is not enough you can always begin the command file with a */
+  /* appropriate sleep directive (\S[...].                            */
+  /* """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
+  nanosleep((const struct timespec[]){ { 0, 100000000L } }, NULL);
+
+  /* parse the command file and send keystokes to the child or sleep */
+  /* for an amount of time.                                          */
+  /* """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
   for (;;)
   {
     rc = read(fdc, &data, 1);
@@ -327,14 +338,24 @@ inject_keys(void * args)
           n              = sscanf((char *)scanf_buf, "[%5[0-9]]%n", tmp, &l);
           if (n != 1)
             exit(1);
+
           if (c == 'S')
           {
-            usleep(atoi(tmp) * 1000);
+            long   delay_ms = atol(tmp);       /* milliseconds */
+            time_t s        = delay_ms / 1000; /* seconds */
+
+            nanosleep(
+              (const struct timespec[]){
+                { s, delay_ms * 1000000L - s * 1000000000L } },
+              NULL);
             continue;
           }
           else
           {
-            sleep_time = atoi(tmp) * 1000;
+            sleep_time   = atol(tmp);          /* milliseconds */
+            sleep_time_s = sleep_time / 1000L; /* seconds */
+            sleep_time_n = sleep_time * 1000000L
+                           - sleep_time_s * 1000000000L; /* remaining ns */
             goto loop;
           }
 
@@ -478,11 +499,32 @@ inject_keys(void * args)
         exit(1);
     }
 
-  /* inter injection loop */
-  /* """""""""""""""""""" */
+    /* Wait for an empty input queue to continue */
+    /* ''''''''''''''''''''''''''''''''''''''''' */
+    {
+      int chars;
+
+      ioctl(fd, FIONREAD, &chars);
+      while (chars != 0)
+      {
+        nanosleep((const struct timespec[]){ { 0, 50000L } }, NULL);
+        ioctl(fd, FIONREAD, &chars);
+      }
+    }
+
+  /* inter injection loop 1/20 s min to leave the application */
+  /* the time to read the keyboard.                           */
+  /* """""""""""""""""""""""""""""""""""""""""""""""""""""""" */
   loop:
-    if (sleep_time > 0)
-      usleep(sleep_time);
+    if (sleep_time > 50)
+    {
+      nanosleep((const struct timespec[]){ { sleep_time_s, sleep_time_n } },
+                NULL);
+    }
+    else
+      /* default to 1/20 s when sleep_time is set to 0 */
+      /* ''''''''''''''''''''''''''''''''''''''''''''''' */
+      nanosleep((const struct timespec[]){ { 0, 50000000L } }, NULL);
   }
 
   return NULL;
