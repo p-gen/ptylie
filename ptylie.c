@@ -710,6 +710,7 @@ main(int argc, char * argv[])
   int      end;
   unsigned width  = 0;
   unsigned height = 0;
+  pid_t    slave_pid;
 
   char * log_file = NULL;
 
@@ -793,8 +794,16 @@ main(int argc, char * argv[])
 
   /* Create the child process */
   /* """""""""""""""""""""""" */
-  if (fork())
+  if (slave_pid = fork())
+  {
+    int rc;
+
     master(fd_master, fd_slave, fdl, fdc);
+
+    /* Wait for the slave to end */
+    /* ''''''''''''''''''''''''' */
+    wait(&rc);
+  }
   else
     slave(fd_slave, argv);
 
