@@ -592,8 +592,12 @@ slave(int fd_slave, char ** argv)
   /* """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
   ioctl(0, TIOCSCTTY, 1);
 
-  /* Execution of the program */
-  /* """""""""""""""""""""""" */
+  /* Set the effective uid from the real uid. */
+  /* """""""""""""""""""""""""""""""""""""""" */
+  seteuid(getuid());
+
+  /* Program execution with its arguments */
+  /* """""""""""""""""""""""""""""""""""" */
   rc = execvp(argv[my_optind], argv + my_optind);
   if (rc == -1)
     fatal("Error %d on execvp()", errno);
