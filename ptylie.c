@@ -79,7 +79,7 @@ fatal(const char * message, ...)
 }
 
 /* =========================================================== */
-/* Sets the the terminal fd in raw mode, returns -& on failure */
+/* Sets the the terminal fd in raw mode, returns -1 on failure */
 /* =========================================================== */
 static int
 tty_raw(struct termios * attr, int fd)
@@ -483,12 +483,16 @@ inject_keys(void * args)
     /* close the buffer and inject it */
     /* """""""""""""""""""""""""""""" */
     buf[l] = '\0';
+
+    /* Inject a sequence of l (>=1) characters in one shot */
+    /* ''''''''''''''''''''''''''''''''''''''''''''''''''' */
     if (l > 1)
     {
       tmp[1] = '\0';
       for (i = 0; i < l; i++)
       {
         tmp[0] = buf[i];
+
         if (ioctl(fd, TIOCSTI, tmp) < 0)
           exit(1);
       }
