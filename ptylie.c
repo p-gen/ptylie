@@ -235,6 +235,32 @@ manage_io(void * args)
   return NULL;
 }
 
+/* ===================================================================== */
+/* get the directive argument that must be found starting at the current */
+/* fd position and ending before the next ']'.                           */
+/*                                                                       */
+/* fd  (IN)  file desctiptor to work on.                                 */
+/* buf (OUT) output null terminated buffer.                              */
+/* len (OUT) size in byte of the argument found.                         */
+/* ===================================================================== */
+void
+get_arg(int fd, char * buf, int * len)
+{
+  int data = '\0';
+  int rc   = 0;
+
+  *len = 0;
+
+  while (rc != -1 && data != ']' && *len < 255)
+  {
+    rc = read(fd, &data, 1);
+    if (rc == -1 || rc == 0)
+      break;
+    buf[(*len)++] = (unsigned char)data;
+  }
+  buf[*len] = '\0';
+}
+
 /* ================================================================= */
 /* Injects keys in the slave's keyboard buffer, we need to have root */
 /* privileges to do that.                                            */
@@ -324,18 +350,8 @@ inject_keys(void * args)
 
         case 's': /* set new seep time between keytrokes        */
         case 'S': /* sleep for the given amount of milliseconds */
-          len  = 0;
-          rc   = 0;
-          data = '\0';
-          while (rc != -1 && data != ']' && len < 255)
-          {
-            rc = read(fdc, &data, 1);
-            if (rc == -1 || rc == 0)
-              break;
-            scanf_buf[len++] = (unsigned char)data;
-          }
-          scanf_buf[len] = '\0';
-          n              = sscanf((char *)scanf_buf, "[%5[0-9]]%n", tmp, &l);
+          get_arg(fdc, scanf_buf, &len);
+          n = sscanf((char *)scanf_buf, "[%5[0-9]]%n", tmp, &l);
           if (n != 1)
             exit(1);
 
@@ -360,17 +376,7 @@ inject_keys(void * args)
           }
 
         case 'W': /* for terminal resizing (ex: [80x24] */
-          len  = 0;
-          rc   = 0;
-          data = '\0';
-          while (rc != -1 && data != ']' && len < 255)
-          {
-            rc = read(fdc, &data, 1);
-            if (rc == -1 || rc == 0)
-              break;
-            scanf_buf[len++] = (unsigned char)data;
-          }
-          scanf_buf[len] = '\0';
+          get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, "[%3[0-9]x%3[0-9]]%n", cols, rows, &l);
           if (n != 2)
             exit(1);
@@ -381,17 +387,7 @@ inject_keys(void * args)
           goto loop;
 
         case 'u': /* for raw hexadecimal UTF-8 injection \u[xxyyzztt]*/
-          len  = 0;
-          rc   = 0;
-          data = '\0';
-          while (rc != -1 && data != ']' && len < 255)
-          {
-            rc = read(fdc, &data, 1);
-            if (rc == -1 || rc == 0)
-              break;
-            scanf_buf[len++] = (unsigned char)data;
-          }
-          scanf_buf[len] = '\0';
+          get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, "[%8[0-9a-fA-F]]%n", tmp, &l);
           if (n != 1)
             exit(1);
@@ -410,18 +406,8 @@ inject_keys(void * args)
           buf[0] = 0x1b;
           buf[1] = '[';
           l      = 2;
-          len    = 0;
-          rc     = 0;
-          data   = '\0';
-          while (rc != -1 && data != ']' && len < 255)
-          {
-            rc = read(fdc, &data, 1);
-            if (rc == -1 || rc == 0)
-              break;
-            scanf_buf[len++] = (unsigned char)data;
-          }
-          scanf_buf[len] = '\0';
-          n              = sscanf((char *)scanf_buf, "[%8[0-9;]]", tmp);
+          get_arg(fdc, scanf_buf, &len);
+          n = sscanf((char *)scanf_buf, "[%8[0-9;]]", tmp);
           if (n != 1)
             exit(1);
 
