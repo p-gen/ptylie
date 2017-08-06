@@ -443,16 +443,15 @@ inject_keys(void * args)
           buf[0] = '\'';
           break;
 
-        case 'a':
-          buf[0] = '?';
-          break;
+        case 'a': /* ignored */
+          continue;
 
         case 't':
           buf[0] = '\t';
           break;
 
         case 'n':
-          buf[0] = '\0';
+          buf[0] = '\n';
           break;
 
         case 'e':
