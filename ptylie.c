@@ -126,7 +126,7 @@ fatal(const char * message, ...)
   fputc('\n', stderr);
   va_end(args);
 
-  exit(1);
+  exit(EXIT_FAILURE);
 }
 
 /* =========================================================== */
@@ -404,7 +404,7 @@ inject_keys(void * args)
           get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, "[%5[0-9]]%n", tmp, &l);
           if (n != 1)
-            exit(1);
+            exit(EXIT_FAILURE);
 
           if (c == 'S')
           {
@@ -430,7 +430,7 @@ inject_keys(void * args)
           get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, "[%3[0-9]x%3[0-9]]%n", cols, rows, &l);
           if (n != 2)
-            exit(1);
+            exit(EXIT_FAILURE);
           memset(&ws, 0, sizeof ws);
           ws.ws_row = atoi(rows);
           ws.ws_col = atoi(cols);
@@ -441,7 +441,7 @@ inject_keys(void * args)
           get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, "[%8[0-9a-fA-F]]%n", tmp, &l);
           if (n != 1)
-            exit(1);
+            exit(EXIT_FAILURE);
 
           for (i = 0; i < (l - 2) / 2; i++)
           {
@@ -460,7 +460,7 @@ inject_keys(void * args)
           get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, "[%8[0-9;]]", tmp);
           if (n != 1)
-            exit(1);
+            exit(EXIT_FAILURE);
 
           while (l < len)
           {
@@ -530,13 +530,13 @@ inject_keys(void * args)
         tmp[0] = buf[i];
 
         if (ioctl(fd, TIOCSTI, tmp) < 0)
-          exit(1);
+          exit(EXIT_FAILURE);
       }
     }
     else
     {
       if (ioctl(fd, TIOCSTI, buf) < 0)
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /* Wait for an empty input queue to continue */
