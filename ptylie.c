@@ -264,7 +264,7 @@ get_arg(int fd, char * buf, int * len)
 /* ================================================================= */
 /* Injects keys in the slave's keyboard buffer, we need to have root */
 /* privileges to do that.                                            */
-/* Manages special dirsectives introduces by \s, \S, \W and \u       */
+/* Manages special directives introduces by \s, \S, \W and \u        */
 /* ================================================================= */
 static void *
 inject_keys(void * args)
@@ -465,7 +465,7 @@ inject_keys(void * args)
       }
     }
 
-    /* close the buffer and inject it */
+    /* Close the buffer and inject it */
     /* """""""""""""""""""""""""""""" */
     buf[l] = '\0';
 
