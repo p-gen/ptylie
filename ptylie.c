@@ -293,6 +293,11 @@ manage_io(void * args)
 /* fd  (IN)  file desctiptor to work on.                                 */
 /* buf (OUT) output null terminated buffer.                              */
 /* len (OUT) size in byte of the argument found.                         */
+/*                                                                       */
+/* NOTE: a missing trailing ']' is silently ignored and at most 4096     */
+/*       byte will be read.                                              */
+/*                                                                       */
+/* TODO: Make this more robust and generic                               */
 /* ===================================================================== */
 void
 get_arg(int fd, char * buf, int * len)
@@ -315,7 +320,7 @@ get_arg(int fd, char * buf, int * len)
 /* ================================================================= */
 /* Injects keys in the slave's keyboard buffer, we need to have root */
 /* privileges to do that.                                            */
-/* Manages special directives introduces by \s, \S, \W and \u        */
+/* Manages also some special additional directives (\s, \S, ...)     */
 /* ================================================================= */
 static void *
 inject_keys(void * args)
