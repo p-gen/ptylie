@@ -302,7 +302,7 @@ get_arg(int fd, char * buf, int * len)
 
   *len = 0;
 
-  while (rc != -1 && data != ']' && *len < 255)
+  while (rc != -1 && data != ']' && *len < 4096)
   {
     rc = read(fd, &data, 1);
     if (rc == -1 || rc == 0)
@@ -442,7 +442,7 @@ inject_keys(void * args)
 
         case 'W': /* for terminal resizing (ex: [80x24] */
           get_arg(fdc, scanf_buf, &len);
-          n = sscanf((char *)scanf_buf, "[%3[0-9]x%3[0-9]]%n", cols, rows, &l);
+          n = sscanf((char *)scanf_buf, "[%3[0-9]x%3[0-9]]", cols, rows);
           if (n != 2)
             exit(EXIT_FAILURE);
           memset(&ws, 0, sizeof ws);
@@ -870,7 +870,7 @@ main(int argc, char * argv[])
 
   /* Create the child process */
   /* """""""""""""""""""""""" */
-  if (slave_pid = fork())
+  if ((slave_pid = fork()))
   {
     int rc;
 
