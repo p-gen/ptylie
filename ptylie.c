@@ -337,10 +337,15 @@ inject_keys(void * args)
   time_t        sleep_time_s = 0;
   long          sleep_time_n = 0;
 
+  stk_t fd_stack; /* int stack to remember nested file descriptors *
+                   * used by the 'R' command                       */
+
   int fd  = ((struct args_s *)args)->fd1;
   int fdc = ((struct args_s *)args)->fd2;
 
   struct winsize ws;
+
+  stk_init(&fd_stack);
 
   /* Sleep for 1/10 s to let a chance to the child program to start.  */
   /* If it is not enough you can always begin the command file with a */
@@ -354,8 +359,17 @@ inject_keys(void * args)
   for (;;)
   {
     rc = read(fdc, &data, 1);
-    if (rc == -1 || rc == 0)
+    if (rc == -1)
       break;
+    if (rc == 0)
+    {
+      close(fdc);
+      fdc = stk_pop(&fd_stack);
+      if (fdc == -1)
+        break;
+      else
+        continue;
+    }
 
     c = (unsigned char)data;
 
@@ -436,6 +450,32 @@ inject_keys(void * args)
           ws.ws_col = atoi(cols);
           ioctl(fd, TIOCSWINSZ, &ws);
           goto loop;
+
+        case 'R': /* include a bytes sequence form a given file, beware *
+                   * to trailing newlines.                              */
+        {
+          int fd_include;
+          get_arg(fdc, scanf_buf, &len);
+          if (scanf_buf[0] != '\0')
+          {
+            if (scanf_buf[strlen(scanf_buf + 1)] == ']')
+              scanf_buf[strlen(scanf_buf + 1)] = '\0';
+
+            if ((fd_include = open(scanf_buf + 1, O_RDONLY)) == -1)
+            {
+              fprintf(stderr, "\r\nCannot open include file %s\r\n",
+                      scanf_buf + 1);
+              exit(EXIT_FAILURE);
+            }
+            else
+            {
+              stk_push(&fd_stack, fdc);
+              fdc = fd_include;
+              continue;
+            }
+          }
+        }
+        break;
 
         case 'u': /* for raw hexadecimal UTF-8 injection \u[xxyyzztt]*/
           get_arg(fdc, scanf_buf, &len);
