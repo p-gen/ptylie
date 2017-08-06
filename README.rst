@@ -9,8 +9,8 @@ Start a program in a pseudo terminal and:
 
 |
 | The PTY part of this programm is: 
-| Originally by Rachid Koucha.
-| Enhanced by Lars Brinhoff and Pierre Gentile for use in this program.
+|   Originally by Rachid Koucha.
+|   Enhanced by Lars Brinhoff and Pierre Gentile for use in this program.
 |
 | http://rachid.koucha.free.fr/tech_corner/pty_pdip.html
 | https://github.com/larsbrinkhoff/pty-stdio
@@ -41,6 +41,8 @@ Some extra special characters are also understood:
 :``\s[n]``:
     sets an interval of *n* ms between each of the next characters
     to inject.
+
+    When not set or set to a value less than 1/20s, the interval is 1/20s.
 :``\S[n]``:
     sleeps once for *n* ms.
 :``\u[h]``:
@@ -57,12 +59,10 @@ Some extra special characters are also understood:
     Injects the character *c* preceded by an escape (0x1b). This sequence
     is generated when the ALT key is used.
 
-IMPORTANT NOTE
-==============
-The *command_file* must start with a ``\s`` directive for this program
-to work.
-
 IMPORTANT SECURTITY CONSIDERATION
 =================================
 The keystrokes injection mechanism only work if the binary is installed
 belonging to root or with the setuid bit set.
+
+The program started by ptylie uses the real pid of the user and is
+therefore not executed with root privileges.
