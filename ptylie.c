@@ -49,9 +49,60 @@ struct args_s
   int fd2;
 };
 
+/* 255 int positions stack */
+/* """"""""""""""""""""""" */
+struct stk_s
+{
+  int nb;
+  int stack[255];
+};
+
+typedef struct stk_s stk_t;
+
 static const char * prog = "ptylie";
 static char *       scan = NULL; /* Private scan pointer. */
 
+/* ------------------------------ */
+/* int stack management functions */
+/* ------------------------------ */
+static void
+stk_init(stk_t * stack)
+{
+  stack->nb = 0;
+}
+
+static int
+stk_empty(stk_t * stack)
+{
+  return (stack->nb == 0);
+}
+
+static int
+stk_push(stk_t * stack, int fd)
+{
+  if (stack->nb == 255)
+    return -1;
+
+  stack->stack[stack->nb] = fd;
+  stack->nb++;
+
+  return fd;
+}
+
+static int
+stk_pop(stk_t * stack)
+{
+  if (stack->nb == 0)
+    return -1;
+
+  stack->nb--;
+
+  return stack->stack[stack->nb];
+}
+
+/* ----------------- */
+/* Utility functions */
+/* ----------------- */
 static void
 cleanup(void)
 {
