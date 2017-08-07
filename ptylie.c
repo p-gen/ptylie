@@ -20,29 +20,99 @@
 #include <termios.h>
 #include <unistd.h>
 
-static void
-usage(char * prog)
-{
-  fprintf(stderr,
-          "Usage: %s [-l log_file] "
-          "[-w terminal_width] "
-          "[-h terminal_height] \\\n"
-          "         -i command_file program_to_launch "
-          "program_arguments\n",
-          prog);
-  exit(EXIT_FAILURE);
-}
+typedef struct stk_s stk_t;
 
-static struct termios old_termios_master;
-static struct termios old_termios_slave;
+/* ---------- */
+/* Prototypes */
+/* ---------- */
 
-static int fd_termios;
+void
+stk_init(stk_t * stack);
 
-char * my_optarg;     /* Global argument pointer. */
-int    my_optind = 0; /* Global argv index. */
+int
+stk_empty(stk_t * stack);
+
+int
+stk_push(stk_t * stack, int fd);
+
+int
+stk_pop(stk_t * stack);
+
+void
+usage(char * prog);
+
+void
+cleanup(void);
+
+void
+handler(int sig);
+
+void
+msg(int type, const char * message, ...);
+
+int
+tty_raw(struct termios * attr, int fd);
+
+int
+open_master(void);
+
+void
+read_write(const char * name, int in, int out, int log);
+
+void
+set_terminal_size(int fd, unsigned width, unsigned height);
+
+void
+set_terminal(int fd, struct termios * old_termios);
+
+void *
+manage_io(void * args);
+
+void
+get_arg(int fd, char * buf, int * len);
+
+void *
+inject_keys(void * args);
+
+void
+master(int fd_master, int fd_slave, int fdl, int fdc);
+
+void
+slave(int fd_slave, char ** argv);
+
+int
+badopt(const char * mess, int ch);
+
+int
+my_getopt(int argc, char * argv[], const char * optstring);
+
+int
+main(int argc, char * argv[]);
+
+/* ----------- */
+/* Definitions */
+/* ----------- */
+
+/* Terminal settings backups */
+/* """"""""""""""""""""""""" */
+struct termios old_termios_master;
+struct termios old_termios_slave;
+
+int fd_termios;
+
+char * my_optarg;     /* global argument pointer. */
+int    my_optind = 0; /* global argv index. */
 int    my_opterr = 1; /* for compatibility, should error be printed? */
 int    my_optopt;     /* for compatibility, option character checked */
 
+enum
+{
+  WARN,
+  FATAL
+};
+
+/* Structure to pass to thread functions */
+/* """"""""""""""""""""""""""""""""""""" */
 struct args_s
 {
   int fd1;
@@ -57,27 +127,26 @@ struct stk_s
   int stack[255];
 };
 
-typedef struct stk_s stk_t;
-
-static const char * prog = "ptylie";
-static char *       scan = NULL; /* Private scan pointer. */
+const char * prog = "ptylie";
+char *       scan = NULL; /* Private scan pointer. */
 
 /* ------------------------------ */
 /* int stack management functions */
 /* ------------------------------ */
-static void
+
+void
 stk_init(stk_t * stack)
 {
   stack->nb = 0;
 }
 
-static int
+int
 stk_empty(stk_t * stack)
 {
   return (stack->nb == 0);
 }
 
-static int
+int
 stk_push(stk_t * stack, int fd)
 {
   if (stack->nb == 255)
@@ -89,7 +158,7 @@ stk_push(stk_t * stack, int fd)
   return fd;
 }
 
-static int
+int
 stk_pop(stk_t * stack)
 {
   if (stack->nb == 0)
@@ -103,21 +172,49 @@ stk_pop(stk_t * stack)
 /* ----------------- */
 /* Utility functions */
 /* ----------------- */
-static void
+
+/* =============================================== */
+/* Displays a small help and terminate the program */
+/* =============================================== */
+void
+usage(char * prog)
+{
+  fprintf(stderr,
+          "Usage: %s [-l log_file] "
+          "[-w terminal_width] "
+          "[-h terminal_height] \\\n"
+          "         -i command_file program_to_launch "
+          "program_arguments\n",
+          prog);
+  exit(EXIT_FAILURE);
+}
+
+/* =========================================================== */
+/* Restores the terminal as it was before running the program. */
+/* =========================================================== */
+void
 cleanup(void)
 {
   tcsetattr(fd_termios, TCSANOW, &old_termios_master);
   tcsetattr(fd_termios, TCSANOW, &old_termios_slave);
 }
 
-static void
+/* ===================== */
+/* SIGINT signal handler */
+/* ===================== */
+void
 handler(int sig)
 {
-  exit(0);
+  cleanup();
+  exit(EXIT_FAILURE);
 }
 
-static void
-fatal(const char * message, ...)
+/* ================================================================ */
+/* printf like function to display fatal messages and terminate the */
+/* program.                                                         */
+/* ================================================================ */
+void
+msg(int type, const char * message, ...)
 {
   va_list args;
 
@@ -126,16 +223,17 @@ fatal(const char * message, ...)
   fputc('\n', stderr);
   va_end(args);
 
-  exit(EXIT_FAILURE);
+  if (type == FATAL)
+    exit(EXIT_FAILURE);
 }
 
-/* =========================================================== */
-/* Sets the the terminal fd in raw mode, returns -1 on failure */
-/* =========================================================== */
-static int
+/* ============================================================ */
+/* Sets the terminal fd in raw mode, returns -1 on failure. */
+/* ============================================================ */
+int
 tty_raw(struct termios * attr, int fd)
 {
-  attr->c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  attr->c_lflag &= ~(ECHO | ICANON | IEXTEN);
   attr->c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
   attr->c_cflag &= ~(CSIZE | PARENB);
   attr->c_cflag |= (CS8);
@@ -149,22 +247,22 @@ tty_raw(struct termios * attr, int fd)
 /* ================================= */
 /* Obtain the master file descriptor */
 /* ================================= */
-static int
+int
 open_master(void)
 {
   int rc, fd_master;
 
   fd_master = posix_openpt(O_RDWR);
   if (fd_master < 0)
-    fatal("Error %d on posix_openpt()", errno);
+    msg(FATAL, "Error %d on posix_openpt()", errno);
 
   rc = grantpt(fd_master);
   if (rc != 0)
-    fatal("Error %d on grantpt()", errno);
+    msg(FATAL, "Error %d on grantpt()", errno);
 
   rc = unlockpt(fd_master);
   if (rc != 0)
-    fatal("Error %d on unlockpt()", errno);
+    msg(FATAL, "Error %d on unlockpt()", errno);
 
   return fd_master;
 }
@@ -173,7 +271,7 @@ open_master(void)
 /* Utility function that Reads bytes from in an write them */
 /* to out and log                                          */
 /* ======================================================= */
-static void
+void
 read_write(const char * name, int in, int out, int log)
 {
   char input[128];
@@ -185,14 +283,14 @@ read_write(const char * name, int in, int out, int log)
     if (errno == EIO)
       exit(0);
 
-    fatal("Error %d on read %s", errno, name);
+    msg(FATAL, "Error %d on read %s", errno, name);
   }
 
   write(out, input, rc);
   write(log, input, rc);
 }
 
-static void
+void
 set_terminal_size(int fd, unsigned width, unsigned height)
 {
   struct winsize ws;
@@ -215,7 +313,7 @@ set_terminal_size(int fd, unsigned width, unsigned height)
 /* ======================= */
 /* Terminal initialization */
 /* ======================= */
-static void
+void
 set_terminal(int fd, struct termios * old_termios)
 {
   struct termios   new_termios;
@@ -233,9 +331,9 @@ set_terminal(int fd, struct termios * old_termios)
   /* and in case of reception of an INT signal.                      */
   rc = tcgetattr(fd, old_termios);
   if (rc == -1)
-    fatal("Error %d on tcgetattr()", errno);
+    msg(FATAL, "Error %d on tcgetattr()", errno);
 
-  /* Setup the sighub handler */
+  /* Setup the signal handler */
   /* """""""""""""""""""""""" */
   sa.sa_handler = handler;
   sa.sa_flags   = 0;
@@ -246,14 +344,14 @@ set_terminal(int fd, struct termios * old_termios)
   /* """""""""""" */
   new_termios = *old_termios;
   if (tty_raw(&new_termios, 0) == -1)
-    fatal("Cannot set %s in raw mode", fd);
+    msg(FATAL, "Cannot set %s in raw mode", fd);
 }
 
 /* ================================================================= */
 /* This function is responsible to send and receive io in the master */
 /* part. The hard work is done by the read_write function.           */
 /* ================================================================= */
-static void *
+void *
 manage_io(void * args)
 {
 
@@ -270,7 +368,7 @@ manage_io(void * args)
     FD_SET(fd_master, &fd_in);
 
     if (select(fd_master + 1, &fd_in, NULL, NULL, NULL) == -1)
-      fatal("Error %d on select()", errno);
+      msg(FATAL, "Error %d on select()", errno);
 
     /* If data on standard input */
     /* """"""""""""""""""""""""" */
@@ -322,7 +420,7 @@ get_arg(int fd, char * buf, int * len)
 /* privileges to do that.                                            */
 /* Manages also some special additional directives (\s, \S, ...)     */
 /* ================================================================= */
-static void *
+void *
 inject_keys(void * args)
 {
   int           data;
@@ -468,9 +566,7 @@ inject_keys(void * args)
 
             if ((fd_include = open(scanf_buf + 1, O_RDONLY)) == -1)
             {
-              fprintf(stderr, "\r\nCannot open include file %s\r\n",
-                      scanf_buf + 1);
-              exit(EXIT_FAILURE);
+              msg(FATAL, "\r\nCannot open include file %s\r\n", scanf_buf + 1);
             }
             else
             {
@@ -618,7 +714,7 @@ inject_keys(void * args)
 /* ====================== */
 /* Master side of the PTY */
 /* ====================== */
-static void
+void
 master(int fd_master, int fd_slave, int fdl, int fdc)
 {
 
@@ -640,7 +736,7 @@ master(int fd_master, int fd_slave, int fdl, int fdc)
 /* ===================== */
 /* Slave side of the PTY */
 /* ===================== */
-static void
+void
 slave(int fd_slave, char ** argv)
 {
   int rc;
@@ -655,17 +751,17 @@ slave(int fd_slave, char ** argv)
   /* PTY becomes standard input (0) */
   /* """""""""""""""""""""""""""""" */
   if (dup(fd_slave) == -1)
-    fatal("Error %d on dup()", errno);
+    msg(FATAL, "Error %d on dup()", errno);
 
   /* PTY becomes standard output (1) */
   /* """"""""""""""""""""""""""""""" */
   if (dup(fd_slave) == -1)
-    fatal("Error %d on dup()", errno);
+    msg(FATAL, "Error %d on dup()", errno);
 
   /* PTY becomes standard error (2) */
   /* """""""""""""""""""""""""""""" */
   if (dup(fd_slave) == -1)
-    fatal("Error %d on dup()", errno);
+    msg(FATAL, "Error %d on dup()", errno);
 
   /* Make the current process a new session leader */
   /* """"""""""""""""""""""""""""""""""""""""""""" */
@@ -685,13 +781,13 @@ slave(int fd_slave, char ** argv)
   /* """""""""""""""""""""""""""""""""""" */
   rc = execvp(argv[my_optind], argv + my_optind);
   if (rc == -1)
-    fatal("Error %d on execvp()", errno);
+    msg(FATAL, "Error %d on execvp()", errno);
 }
 
 /* ================================= */
 /* Print message about a bad option. */
 /* ================================= */
-static int
+int
 badopt(const char * mess, int ch)
 {
   if (my_opterr)
@@ -716,7 +812,7 @@ badopt(const char * mess, int ch)
 /*                                                                            */
 /* This file is in the Public Domain.                                         */
 /* ========================================================================== */
-static int
+int
 my_getopt(int argc, char * argv[], const char * optstring)
 {
   register char         c;
@@ -807,7 +903,7 @@ main(int argc, char * argv[])
         fdc = open(my_optarg, O_RDONLY);
         if (fdc == -1)
         {
-          fprintf(stderr, "Cannot open %s\n", my_optarg);
+          msg(WARN, "Cannot open %s\n", my_optarg);
           usage(argv[0]);
         }
         break;
@@ -835,7 +931,7 @@ main(int argc, char * argv[])
 
   if (optind >= argc)
   {
-    fprintf(stderr, "Expected argument after options\n");
+    msg(WARN, "Expected argument after options\n");
     usage(argv[0]);
     exit(EXIT_FAILURE);
   }
@@ -843,7 +939,7 @@ main(int argc, char * argv[])
   /* Manage the arguments list */
   /* """"""""""""""""""""""""" */
   if (argc <= 1)
-    fatal("Usage: %s program_name [parameters]", argv[0]);
+    msg(FATAL, "Usage: %s program_name [parameters]", argv[0]);
 
   if (fdc == -1)
     usage(argv[0]);
