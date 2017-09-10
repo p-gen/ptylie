@@ -5,9 +5,9 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 /* For FIONREAD */
 #if defined(__sun)
@@ -69,7 +69,7 @@ void *
 manage_io(void * args);
 
 void
-get_arg(int fd, char * buf, int * len);
+get_arg(int fd, unsigned char * buf, int * len);
 
 void *
 inject_keys(void * args);
@@ -398,7 +398,7 @@ manage_io(void * args)
 /* TODO: Make this more robust and generic                               */
 /* ===================================================================== */
 void
-get_arg(int fd, char * buf, int * len)
+get_arg(int fd, unsigned char * buf, int * len)
 {
   int data = '\0';
   int rc   = 0;
@@ -564,7 +564,7 @@ inject_keys(void * args)
             if (scanf_buf[strlen(scanf_buf + 1)] == ']')
               scanf_buf[strlen(scanf_buf + 1)] = '\0';
 
-            if ((fd_include = open(scanf_buf + 1, O_RDONLY)) == -1)
+            if ((fd_include = open((char *)scanf_buf + 1, O_RDONLY)) == -1)
             {
               msg(FATAL, "\r\nCannot open include file %s\r\n", scanf_buf + 1);
             }
