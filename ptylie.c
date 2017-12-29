@@ -696,16 +696,20 @@ inject_keys(void * args)
   /* inter injection loop 1/20 s min to leave the application */
   /* the time to read the keyboard.                           */
   /* """""""""""""""""""""""""""""""""""""""""""""""""""""""" */
+
   loop:
-    if (sleep_time > 50)
+
+    /* default to 1/20 s when sleep_time is set to 0 */
+    /* ''''''''''''''''''''''''''''''''''''''''''''''' */
+    if (sleep_time < 50)
     {
-      nanosleep((const struct timespec[]){ { sleep_time_s, sleep_time_n } },
-                NULL);
+      sleep_time   = 50;
+      sleep_time_s = 0;
+      sleep_time_n = 50000000L;
     }
-    else
-      /* default to 1/20 s when sleep_time is set to 0 */
-      /* ''''''''''''''''''''''''''''''''''''''''''''''' */
-      nanosleep((const struct timespec[]){ { 0, 50000000L } }, NULL);
+
+    nanosleep((const struct timespec[]){ { sleep_time_s, sleep_time_n } },
+              NULL);
   }
 
   return NULL;
