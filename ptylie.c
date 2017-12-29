@@ -686,7 +686,7 @@ inject_keys(void * args)
       int chars;
 
       ioctl(fd, FIONREAD, &chars);
-      while (chars != 0)
+      while (chars > 1)
       {
         nanosleep((const struct timespec[]){ { 0, 50000L } }, NULL);
         ioctl(fd, FIONREAD, &chars);
