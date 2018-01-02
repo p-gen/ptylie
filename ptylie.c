@@ -1,4 +1,5 @@
 #define _XOPEN_SOURCE 600
+#include "config.h"
 #include <errno.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -895,10 +896,14 @@ main(int argc, char * argv[])
 
   char * log_file = NULL;
 
-  while ((opt = my_getopt(argc, argv, "l:i:w:h:")) != -1)
+  while ((opt = my_getopt(argc, argv, "Vl:i:w:h:")) != -1)
   {
     switch (opt)
     {
+      case 'V':
+        fprintf(stderr, "Version: " VERSION "\n");
+        exit(0);
+
       case 'l':
         log_file = strdup(my_optarg);
         break;
