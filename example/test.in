@@ -1,0 +1,14 @@
+# This demo was produced with test.in as input file:
+#
+: ====================================
+cat test.in
+: ====================================
+
+\S[1000]echo "Tested on Linux"
+\s[0]uname -o -i
+read A
+test
+echo
+\s[300]echo $A
+
+\s[0]exit 0
