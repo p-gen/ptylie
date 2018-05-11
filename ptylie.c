@@ -15,6 +15,7 @@
 #include <sys/filio.h>
 #endif
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/wait.h>
