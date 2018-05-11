@@ -1,0 +1,18 @@
+## Standard documentation
+*.rst linguist-documentation
+## autotools
+build-aux/* linguist-vendored
+aclocal.m4 linguist-vendored
+configure linguist-vendored
+configure.ac linguist-vendored
+configure.in linguist-vendore
+depcomp linguist-vendored
+install-sh linguist-vendored
+missing linguist-vendored
+mkinstalldirs linguist-vendored
+Makefile.am linguist-vendored
+Makefile.in linguist-vendored
+## My Project files
+build.sh linguist-vendored
+version linguist-vendored
+examples/* linguist-vendored
