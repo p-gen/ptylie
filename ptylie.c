@@ -529,10 +529,9 @@ inject_keys(void * args)
             long   delay_ms = atol(tmp);       /* milliseconds */
             time_t s        = delay_ms / 1000; /* seconds */
 
-            nanosleep(
-              (const struct timespec[]){
-                { s, delay_ms * 1000000L - s * 1000000000L } },
-              NULL);
+            nanosleep((const struct timespec[]){ { s, delay_ms * 1000000L
+                                                        - s * 1000000000L } },
+                      NULL);
             continue;
           }
           else
@@ -694,9 +693,9 @@ inject_keys(void * args)
       }
     }
 
-  /* inter injection loop 1/20 s min to leave the application */
-  /* the time to read the keyboard.                           */
-  /* """""""""""""""""""""""""""""""""""""""""""""""""""""""" */
+    /* inter injection loop 1/20 s min to leave the application */
+    /* the time to read the keyboard.                           */
+    /* """""""""""""""""""""""""""""""""""""""""""""""""""""""" */
 
   loop:
 
