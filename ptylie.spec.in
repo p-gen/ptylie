@@ -24,6 +24,7 @@ License:        GPL-2.0
 Group:          Productivity/Text/Utilities
 Url:            http://github.com/p-gen/ptylie.git
 Source:         %{name}-%{version}.tar.bz2
+Source1:        %{name}-rpmlintrc
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
 %description
@@ -36,6 +37,8 @@ Author: Pierre Gentile <p.gen.progs@gmail.com>
 %setup -q
 
 %build
+export SUID_CFLAGS=-fPIE
+export SUID_LDFLAGS=-pie
 %configure
 make %{?_smp_mflags}
 
