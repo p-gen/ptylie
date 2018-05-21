@@ -32,4 +32,4 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([atexit memset putenv select strdup strtol])
 
 AC_CONFIG_FILES([Makefile])
-AC_OUTPUT
+AC_OUTPUT([ptylie.spec])

@@ -1,0 +1,58 @@
+#
+# spec file for package ptylie
+#
+# Copyright (c) 2015 SUSE LINUX GmbH, Nuernberg, Germany.
+#
+# All modifications and additions to the file contributed by third parties
+# remain the property of their copyright owners, unless otherwise agreed
+# upon. The license for this file, and modifications and additions to the
+# file, is the same license as for the pristine package itself (unless the
+# license for the pristine package is not an Open Source License, in which
+# case the license is the MIT License). An "Open Source License" is a
+# license that conforms to the Open Source Definition (Version 1.9)
+# published by the Open Source Initiative.
+
+# Please submit bugfixes or comments via http://bugs.opensuse.org/
+#
+
+
+Name:           ptylie
+Version:        @VERSION@
+Release:        0
+Summary:        Record a terminal session with automatic keyboard entry
+License:        GPL-2.0
+Group:          Productivity/Text/Utilities
+Url:            http://github.com/p-gen/ptylie.git
+Source:         %{name}-%{version}.tar.bz2
+BuildRoot:      %{_tmppath}/%{name}-%{version}-build
+
+%description
+This tool simulates a user typing on a keyboard and saves what is
+displayed on the terminal in a file.
+
+Author: Pierre Gentile <p.gen.progs@gmail.com>
+
+%prep
+%setup -q
+
+%build
+%configure
+make %{?_smp_mflags}
+
+%install
+make DESTDIR=%{buildroot} install %{?_smp_mflags}
+install -d %{buildroot}%{_defaultdocdir}/%{name}
+for FILE in COPYRIGHT *.rst examples; do
+  mv ${FILE} %{buildroot}%{_defaultdocdir}/%{name}
+done
+
+%files
+%defattr(-,root,root,-)
+%attr(4755,root,root) %{_bindir}/*
+%dir %{_defaultdocdir}/%{name}
+%doc %{_defaultdocdir}/%{name}/COPYRIGHT
+%doc %{_defaultdocdir}/%{name}/examples
+%doc %{_defaultdocdir}/%{name}/*.rst
+%{_mandir}/man1/*
+
+%changelog
