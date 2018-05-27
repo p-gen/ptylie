@@ -9,11 +9,11 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 foreign -Wall])
 AM_SILENT_RULES([yes])
-AM_PROG_CC_C_O
 
 
 # Checks for programs.
 AC_PROG_CC
+AM_PROG_CC_C_O
 
 # Checks for libraries.
 AC_CHECK_LIB([pthread], [pthread_create])
