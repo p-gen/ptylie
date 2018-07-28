@@ -69,8 +69,11 @@ Some extra special sequences are also understood:
     When not set or set to a value less than 1/20s, the interval is 1/20s.
 :``\S[n]``:
     sleeps once for **n** ms.
-:``\u[h]``:
+:``\u[hh...]``:
     injects a sequence of up to 4 hexadecimal numbers (UTF-8).
+:``\x[hh...]``:
+    injects a sequence of up to 128 characters (each coded on 2
+    hexadecimal positions).
 :``\W[XxY]``:
     resizes the slave's terminal to **X** columns and **Y** lines.
 :``\c[color sequence]``:
@@ -88,3 +91,8 @@ Some extra special sequences are also understood:
 :``\Mc``:
     injects the character **c** preceded by an escape (0x1b).
     This sequence is generated when the ALT key is used.
+:``\m[file]``:
+    use another map file for the subtitles, see below.
+:``\k``:
+    active/deactivate the subtitle generation
+

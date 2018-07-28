@@ -98,7 +98,7 @@ CONFIG_CLEAN_FILES = ptylie.spec
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_ptylie_OBJECTS = ptylie-ptylie.$(OBJEXT)
+am_ptylie_OBJECTS = ptylie-ptylie.$(OBJEXT) ptylie-tree.$(OBJEXT)
 ptylie_OBJECTS = $(am_ptylie_OBJECTS)
 ptylie_LDADD = $(LDADD)
 ptylie_LINK = $(CCLD) $(ptylie_CFLAGS) $(CFLAGS) $(ptylie_LDFLAGS) \
@@ -298,7 +298,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-ptylie_SOURCES = ptylie.c
+ptylie_SOURCES = ptylie.c tree.c
 dist_man_MANS = ptylie.1
 ptylie_CFLAGS = $(SUID_CFLAGS) $(AM_CFLAGS)
 ptylie_LDFLAGS = $(SUID_LDFLAGS) $(AM_LDFLAGS)
@@ -416,6 +416,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptylie-ptylie.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptylie-tree.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -444,6 +445,20 @@ ptylie-ptylie.obj: ptylie.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ptylie.c' object='ptylie-ptylie.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ptylie_CFLAGS) $(CFLAGS) -c -o ptylie-ptylie.obj `if test -f 'ptylie.c'; then $(CYGPATH_W) 'ptylie.c'; else $(CYGPATH_W) '$(srcdir)/ptylie.c'; fi`
+
+ptylie-tree.o: tree.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ptylie_CFLAGS) $(CFLAGS) -MT ptylie-tree.o -MD -MP -MF $(DEPDIR)/ptylie-tree.Tpo -c -o ptylie-tree.o `test -f 'tree.c' || echo '$(srcdir)/'`tree.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptylie-tree.Tpo $(DEPDIR)/ptylie-tree.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tree.c' object='ptylie-tree.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ptylie_CFLAGS) $(CFLAGS) -c -o ptylie-tree.o `test -f 'tree.c' || echo '$(srcdir)/'`tree.c
+
+ptylie-tree.obj: tree.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ptylie_CFLAGS) $(CFLAGS) -MT ptylie-tree.obj -MD -MP -MF $(DEPDIR)/ptylie-tree.Tpo -c -o ptylie-tree.obj `if test -f 'tree.c'; then $(CYGPATH_W) 'tree.c'; else $(CYGPATH_W) '$(srcdir)/tree.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/ptylie-tree.Tpo $(DEPDIR)/ptylie-tree.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tree.c' object='ptylie-tree.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ptylie_CFLAGS) $(CFLAGS) -c -o ptylie-tree.obj `if test -f 'tree.c'; then $(CYGPATH_W) 'tree.c'; else $(CYGPATH_W) '$(srcdir)/tree.c'; fi`
 install-man1: $(dist_man_MANS)
 	@$(NORMAL_INSTALL)
 	@list1=''; \

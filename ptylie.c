@@ -22,7 +22,13 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "tree.h"
+
+#define MAX_ETIME 86400
+
 typedef struct stk_s stk_t;
+
+typedef struct map_elem_s map_elem_t;
 
 /* ---------- */
 /* Prototypes */
@@ -88,12 +94,20 @@ badopt(const char * mess, int ch);
 int
 my_getopt(int argc, char * argv[], const char * optstring);
 
+void
+init_etime(void);
+
+void
+add_srt_entry(char * buf);
+
 int
 main(int argc, char * argv[]);
 
 /* ----------- */
 /* Definitions */
 /* ----------- */
+
+struct timeval first; /* real time */
 
 /* Terminal settings backups */
 /* """"""""""""""""""""""""" */
@@ -129,8 +143,26 @@ struct stk_s
   int stack[255];
 };
 
+struct map_elem_s
+{
+  char * key;
+  char * repl;
+};
+
+rb_tree * map_tree;
+
 const char * prog = "ptylie";
 char *       scan = NULL; /* Private scan pointer. */
+
+FILE * srt = NULL;
+FILE * map = NULL;
+
+int srt_on           = 0;
+int default_duration = 300; /* ms */
+int duration;
+
+char * log_file = NULL;
+char * srt_file = NULL;
 
 /* ------------------------------ */
 /* int stack management functions */
@@ -171,10 +203,301 @@ stk_pop(stk_t * stack)
   return stack->stack[stack->nb];
 }
 
+/* init the timer */
+void
+init_etime(void)
+{
+  gettimeofday(&first, NULL);
+}
+
+/* return elapsed seconds since call to init_etime */
+void
+add_srt_entry(char * buf)
+{
+  static unsigned c = 1;
+  int             h1, m1;
+  int             h2, m2;
+  long            s1, ms1;
+  long            s2, ms2;
+
+  long etime;
+
+  struct timeval curr;
+
+  gettimeofday(&curr, NULL);
+  etime =
+    (curr.tv_sec - first.tv_sec) * 1000000L + (curr.tv_usec - first.tv_usec);
+
+  etime /= 1000;
+
+  h1  = (int)(etime / 3600000);
+  m1  = (int)((etime - h1 * 3600000) / 60000);
+  s1  = (etime - h1 * 3600000 - m1 * 60000) / 1000;
+  ms1 = etime - h1 * 3600000 - m1 * 60000 - s1 * 1000;
+
+  etime += duration;
+
+  h2  = (int)(etime / 3600000);
+  m2  = (int)((etime - h2 * 3600000) / 60000);
+  s2  = (etime - h2 * 3600000 - m2 * 60000) / 1000;
+  ms2 = etime - h2 * 3600000 - m2 * 60000 - s2 * 1000;
+
+  fprintf(srt,
+          "%d\n"
+          "%02d:%02d:%02ld,%03ld --> "
+          "%02d:%02d:%02ld,%03ld\n"
+          "%s\n\n",
+          c++, h1, m1, s1, ms1, h2, m2, s2, ms2, buf);
+}
+
 /* ----------------- */
 /* Utility functions */
 /* ----------------- */
 
+/* ========================================================= */
+/* Decode the number of bytes taken by a character (UTF-8)   */
+/* It is the length of the leading sequence of bits set to 1 */
+/* (Count Leading Ones)                                      */
+/* ========================================================= */
+static int
+mb_get_length(unsigned char c)
+{
+  if (c >= 0xf0)
+    return 4;
+  else if (c >= 0xe0)
+    return 3;
+  else if (c >= 0xc2)
+    return 2;
+  else
+    return 1;
+}
+
+static const char trailing_bytes_for_utf8[256] = {
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+  2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5
+};
+
+/* ================================================================= */
+/* UTF8 validation routine inspired by Jeff Bezanson                 */
+/*   placed in the public domain Fall 2005                           */
+/*   (https://github.com/JeffBezanson/cutef8)                        */
+/*                                                                   */
+/* Returns 1 if str contains a valid UTF8 byte sequence, 0 otherwise */
+/* ================================================================= */
+static int
+mb_validate(const char * str, int length)
+{
+  const unsigned char *p, *pend = (unsigned char *)str + length;
+  unsigned char        c;
+  int                  ab;
+
+  for (p = (unsigned char *)str; p < pend; p++)
+  {
+    c = *p;
+    if (c < 128)
+      continue;
+    if ((c & 0xc0) != 0xc0)
+      return 0;
+    ab = trailing_bytes_for_utf8[c];
+    if (length < ab)
+      return 0;
+    length -= ab;
+
+    p++;
+    /* Check top bits in the second byte */
+    /* """"""""""""""""""""""""""""""""" */
+    if ((*p & 0xc0) != 0x80)
+      return 0;
+
+    /* Check for overlong sequences for each different length */
+    /* """""""""""""""""""""""""""""""""""""""""""""""""""""" */
+    switch (ab)
+    {
+      /* Check for xx00 000x */
+      /* """"""""""""""""""" */
+      case 1:
+        if ((c & 0x3e) == 0)
+          return 0;
+        continue; /* We know there aren't any more bytes to check */
+
+      /* Check for 1110 0000, xx0x xxxx */
+      /* """""""""""""""""""""""""""""" */
+      case 2:
+        if (c == 0xe0 && (*p & 0x20) == 0)
+          return 0;
+        break;
+
+      /* Check for 1111 0000, xx00 xxxx */
+      /* """""""""""""""""""""""""""""" */
+      case 3:
+        if (c == 0xf0 && (*p & 0x30) == 0)
+          return 0;
+        break;
+
+      /* Check for 1111 1000, xx00 0xxx */
+      /* """""""""""""""""""""""""""""" */
+      case 4:
+        if (c == 0xf8 && (*p & 0x38) == 0)
+          return 0;
+        break;
+
+      /* Check for leading 0xfe or 0xff,   */
+      /* and then for 1111 1100, xx00 00xx */
+      /* """"""""""""""""""""""""""""""""" */
+      case 5:
+        if (c == 0xfe || c == 0xff || (c == 0xfc && (*p & 0x3c) == 0))
+          return 0;
+        break;
+    }
+
+    /* Check for valid bytes after the 2nd, if any; all must start 10 */
+    /* """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
+    while (--ab > 0)
+    {
+      if ((*(++p) & 0xc0) != 0x80)
+        return 0;
+    }
+  }
+
+  return 1;
+}
+
+/* ======================================================================== */
+/* unicode (UTF-8) ascii representation interprer.                          */
+/* The string passed will be altered but will not move in memory            */
+/* All sequence of \uxx, \uxxxx, \uxxxxxx and \uxxxxxxxx will be replace by */
+/* the corresponding UTF-8 character.                                       */
+/* ======================================================================== */
+void
+mb_interpret(char * s)
+{
+  char * utf8_str;          /* \uxx...                                        */
+  size_t utf8_to_eos_len;   /* bytes in s starting from the first             *
+                             * occurrence of \u                               */
+  size_t init_len;          /* initial lengths of the string to interpret     */
+  size_t utf8_ascii_len;    /* 2,4,6 or 8 bytes                               */
+  size_t len_to_remove = 0; /* number of bytes to remove after the conversion */
+  char   tmp[9];            /* temporary string                               */
+
+  /* Guard against the case where s is NULL */
+  /* """""""""""""""""""""""""""""""""""""" */
+  if (s == NULL)
+    return;
+
+  init_len = strlen(s);
+
+  while ((utf8_str = strstr(s, "\\u")) != NULL)
+  {
+    utf8_to_eos_len = strlen(utf8_str);
+    if (utf8_to_eos_len
+        < 4) /* string too short to contain a valid UTF-8 char */
+    {
+      *utf8_str       = '.';
+      *(utf8_str + 1) = '\0';
+    }
+    else /* s is long enough */
+    {
+      unsigned byte;
+      char *   utf8_seq_offset = utf8_str + 2;
+
+      /* Get the first 2 utf8 bytes */
+      *tmp       = *utf8_seq_offset;
+      *(tmp + 1) = *(utf8_seq_offset + 1);
+      *(tmp + 2) = '\0';
+
+      /* If they are invalid, replace the \u sequence by a dot */
+      /* """"""""""""""""""""""""""""""""""""""""""""""""""""" */
+      if (!isxdigit(tmp[0]) || !isxdigit(tmp[1]))
+      {
+        *utf8_str = '.';
+        if (4 >= utf8_to_eos_len)
+          *(utf8_str + 1) = '\0';
+        else
+          memmove(utf8_str, utf8_str + 4, utf8_to_eos_len - 4);
+        return;
+      }
+      else
+      {
+        /* They are valid, deduce from them the length of the sequence */
+        /* """"""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
+        sscanf(tmp, "%2x", &byte);
+        utf8_ascii_len = mb_get_length(byte) * 2;
+
+        /* Check again if the inputs string is long enough */
+        /* """"""""""""""""""""""""""""""""""""""""""""""" */
+        if (utf8_to_eos_len - 2 < utf8_ascii_len)
+        {
+          *utf8_str       = '.';
+          *(utf8_str + 1) = '\0';
+        }
+        else
+        {
+          /* replace the \u sequence by the bytes forming the UTF-8 char */
+          /* """"""""""""""""""""""""""""""""""""""""""""""""""""""""""" */
+          size_t i;
+          *tmp = byte;
+
+          /* Put the bytes in the tmp string */
+          /* ''''''''''''''''''''''''''''''' */
+          for (i = 1; i < utf8_ascii_len / 2; i++)
+          {
+            sscanf(utf8_seq_offset + 2 * i, "%2x", &byte);
+            *(tmp + i) = byte;
+          }
+          tmp[utf8_ascii_len / 2] = '\0';
+
+          /* Does they form a valid UTF-8 char? */
+          /* '''''''''''''''''''''''''''''''''' */
+          if (mb_validate(tmp, utf8_ascii_len / 2))
+          {
+            /* Put them back in the original string and move */
+            /* the remaining bytes after them                */
+            /* ''''''''''''''''''''''''''''''''''''''''''''' */
+            memmove(utf8_str, tmp, utf8_ascii_len / 2);
+
+            if (utf8_to_eos_len < utf8_ascii_len)
+              *(utf8_str + utf8_ascii_len / 2 + 1) = '\0';
+            else
+              memmove(utf8_str + utf8_ascii_len / 2,
+                      utf8_seq_offset + utf8_ascii_len,
+                      utf8_to_eos_len - utf8_ascii_len - 2 + 1);
+          }
+          else
+          {
+            /* The invalid sequence is replaced by a dot */
+            /* ''''''''''''''''''''''''''''''''''''''''' */
+            *utf8_str = '.';
+            if (utf8_to_eos_len < utf8_ascii_len)
+              *(utf8_str + 1) = '\0';
+            else
+              memmove(utf8_str + 1, utf8_seq_offset + utf8_ascii_len,
+                      utf8_to_eos_len - utf8_ascii_len - 2 + 1);
+            utf8_ascii_len = 2;
+          }
+        }
+
+        /* Update the number of bytes to remove at the end */
+        /* of the initial string                           */
+        /* """"""""""""""""""""""""""""""""""""""""""""""" */
+        len_to_remove += 2 + utf8_ascii_len / 2;
+      }
+    }
+  }
+
+  /* Make sure that the string is well terminated */
+  /* """""""""""""""""""""""""""""""""""""""""""" */
+  *(s + init_len - len_to_remove) = '\0';
+
+  return;
+}
 /* =============================================== */
 /* Displays a small help and terminate the program */
 /* =============================================== */
@@ -295,7 +618,7 @@ read_write(const char * name, int in, int out, int log)
 void
 set_terminal_size(int fd, unsigned width, unsigned height)
 {
-  struct winsize ws;
+  struct winsize ws = { 24, 80, 0, 0 };
 
   /* Set the default terminal geometry */
   /* """"""""""""""""""""""""""""""""" */
@@ -417,6 +740,22 @@ get_arg(int fd, unsigned char * buf, int * len)
   buf[*len] = '\0';
 }
 
+int
+map_elem_comp(const void * ptr1, const void * ptr2)
+{
+  map_elem_t * d1 = (map_elem_t *)ptr1;
+  map_elem_t * d2 = (map_elem_t *)ptr2;
+  return strcmp(d1->key, d2->key);
+}
+
+void
+map_elem_free(void * ptr)
+{
+  map_elem_t * d = (map_elem_t *)ptr;
+  free(d->key);
+  free(d->repl);
+}
+
 /* ================================================================= */
 /* Injects keys in the slave's keyboard buffer, we need to have root */
 /* privileges to do that.                                            */
@@ -432,6 +771,7 @@ inject_keys(void * args)
   int           n;
   unsigned char c;
   unsigned char buf[4096];
+  unsigned char vbuf[4096];
   unsigned char scanf_buf[4096];
   char          tmp[256];
   char          rows[4], cols[4];
@@ -442,6 +782,18 @@ inject_keys(void * args)
   time_t        sleep_time_s = 0;
   long          sleep_time_n = 0;
 
+  char * v_empty = "";
+  char * v_space = "\xe2\x90\xa3";
+  char * v_ht    = "\xe2\x87\xa5";
+  char * v_lf    = "\xe2\x8f\x8e";
+  char * v_cr    = "\xe2\x90\x8d";
+  char * v_bs    = "\xe2\x8c\xab";
+  char * v_esc   = "ESC";
+
+  char * format;
+
+  char * srt_buf_prt = v_empty;
+
   stk_t fd_stack; /* int stack to remember nested file descriptors *
                    * used by the 'R' command                       */
 
@@ -450,7 +802,12 @@ inject_keys(void * args)
 
   struct winsize ws;
 
+  rb_tree *  map_tree = new_rb_tree(map_elem_comp);
+  map_elem_t elem;
+
   stk_init(&fd_stack);
+
+  init_etime();
 
   /* Sleep for 1/10 s to let a chance to the child program to start.  */
   /* If it is not enough you can always begin the command file with a */
@@ -478,6 +835,9 @@ inject_keys(void * args)
 
     c = (unsigned char)data;
 
+    if (srt_on)
+      vbuf[0] = '\0';
+
     if (!special)
     {
       if (c == '\\')
@@ -491,18 +851,49 @@ inject_keys(void * args)
         meta   = 0;
         buf[0] = 0x1b;
         buf[1] = c;
-        l      = 2;
+
+        if (srt_on)
+        {
+          strcpy((char *)vbuf, "ALT-");
+          vbuf[4] = toupper(c);
+          vbuf[5] = '\0';
+        }
+
+        l = 2;
       }
       else if (control)
       {
         control = 0;
         buf[0]  = toupper(c) - '@';
-        l       = 1;
+
+        if (srt_on)
+        {
+          vbuf[0] = '^';
+          vbuf[1] = toupper(c);
+          vbuf[2] = '\0';
+        }
+
+        l = 1;
       }
       else
       {
+        int i, mb_len;
+
         buf[0] = c;
-        l      = 1;
+        mb_len = mb_get_length(c);
+
+        if (len > 1)
+          for (i = 1; i <= mb_len - 1; i++)
+          {
+            rc = read(fdc, &data, 1);
+            if (rc == 0 || rc == -1)
+              break;
+
+            c      = (unsigned char)data;
+            buf[i] = c;
+          }
+
+        l = mb_len;
       }
     }
     else
@@ -562,8 +953,8 @@ inject_keys(void * args)
           get_arg(fdc, scanf_buf, &len);
           if (scanf_buf[0] != '\0')
           {
-            if (scanf_buf[strlen(scanf_buf + 1)] == ']')
-              scanf_buf[strlen(scanf_buf + 1)] = '\0';
+            if (scanf_buf[strlen((char *)scanf_buf + 1)] == ']')
+              scanf_buf[strlen((char *)scanf_buf + 1)] = '\0';
 
             if ((fd_include = open((char *)scanf_buf + 1, O_RDONLY)) == -1)
             {
@@ -579,20 +970,76 @@ inject_keys(void * args)
         }
         break;
 
-        case 'u': /* for raw hexadecimal UTF-8 injection \u[xxyyzztt]*/
+        case 'm': /* consider a new map file */
+        {
           get_arg(fdc, scanf_buf, &len);
-          n = sscanf((char *)scanf_buf, "[%8[0-9a-fA-F]]%n", tmp, &l);
+          if (scanf_buf[0] != '\0')
+          {
+            if (scanf_buf[strlen((char *)scanf_buf + 1)] == ']')
+              scanf_buf[strlen((char *)scanf_buf + 1)] = '\0';
+
+            if ((map = fopen((char *)scanf_buf + 1, "r")) == NULL)
+            {
+              msg(FATAL, "\r\nCannot open map file %s\r\n", scanf_buf + 1);
+            }
+            else
+            {
+              char line[256];
+              char key[256], repl[256];
+
+              rb_tree_remove_all(map_tree, map_elem_free);
+
+              while (!feof(map))
+              {
+                fscanf(map, "%255[^\n]", line);
+                line[255] = '\0';
+
+                if (sscanf(line, "%255[^\n] %255[^\n]", key, repl) != 2)
+                  continue;
+                else
+                {
+                  key[255] = repl[255] = '\0';
+
+                  map_elem_t * elem = malloc(sizeof(map_elem_t));
+                  elem->key         = strdup(key);
+                  mb_interpret(elem->key);
+                  elem->repl = strdup(repl);
+                  mb_interpret(elem->repl);
+                  rb_tree_insert(map_tree, elem);
+                }
+              }
+              continue;
+            }
+          }
+        }
+
+        break;
+
+        case 'x': /* Arbitrary hexadecimal sequence (max 256) */
+          format = "[%256[0-9a-fA-F]]%n";
+
+        case 'u': /* for raw hexadecimal UTF-8 injection \u[xx[yy[zz[tt]]]]*/
+          format = "[%8[0-9a-fA-F]]%n";
+
+          get_arg(fdc, scanf_buf, &len);
+          n = sscanf((char *)scanf_buf, format, tmp, &l);
+
           if (n != 1)
-            exit(EXIT_FAILURE);
+            msg(FATAL, "\r\nInvalid sequence.\r\n", scanf_buf + 1);
+
+          if (l < 2 || l % 2 == 1)
+            msg(FATAL, "\r\nInvalid hexadecimal sequence.\r\n", scanf_buf + 1);
 
           for (i = 0; i < (l - 2) / 2; i++)
           {
             unsigned char charhex[3] = { tmp[i * 2], tmp[i * 2 + 1], 0 };
             tmp[i] = (unsigned char)strtol((char *)charhex, NULL, 16);
           }
+
           l      = (l - 2) / 2;
           tmp[l] = '\0';
           memcpy(buf, tmp, l);
+
           break;
 
         case 'c': /* colour setting \c[x;y;z] */
@@ -613,6 +1060,13 @@ inject_keys(void * args)
           l++;
           break;
 
+        case 'k': /* keys as subtitle on/off */
+          if (srt == NULL)
+            srt = fopen(srt_file, "w");
+
+          srt_on = !srt_on;
+          continue;
+
         case 'M':
           meta = 1;
           continue;
@@ -630,11 +1084,13 @@ inject_keys(void * args)
 
         case '\"':
           buf[0] = '"';
-          break;
+          if (srt_on)
+            break;
 
         case '\'':
           buf[0] = '\'';
-          break;
+          if (srt_on)
+            break;
 
         case 'a': /* ignored */
           continue;
@@ -662,8 +1118,18 @@ inject_keys(void * args)
     /* """""""""""""""""""""""""""""" */
     buf[l] = '\0';
 
-    /* Inject a sequence of l (>=1) characters in one shot */
-    /* ''''''''''''''''''''''''''''''''''''''''''''''''''' */
+    if (srt_on)
+    {
+      if (map != NULL)
+      {
+        map_elem_t * pelem;
+        elem.key = (char *)buf;
+        mb_interpret(elem.key);
+        if ((pelem = rb_tree_search(map_tree, &elem)) != NULL)
+          strcpy((char *)vbuf, pelem->repl);
+      }
+    }
+
     if (l > 1)
     {
       tmp[1] = '\0';
@@ -674,9 +1140,63 @@ inject_keys(void * args)
         if (ioctl(fd, TIOCSTI, tmp) < 0)
           exit(EXIT_FAILURE);
       }
+      if (srt_on)
+      {
+        if (*vbuf != '\0')
+          add_srt_entry((char *)vbuf);
+        else if (mb_validate((char *)buf, l))
+          add_srt_entry((char *)buf);
+      }
     }
     else
     {
+      if (srt_on)
+      {
+        if (*vbuf != '\0')
+          add_srt_entry((char *)vbuf);
+        else if (isgraph(buf[0]))
+          add_srt_entry((char *)buf);
+        else
+        {
+          if (map == NULL)
+          {
+            switch (buf[0])
+            {
+              case ' ':
+                srt_buf_prt = v_space;
+                break;
+
+              case 0x09:
+                srt_buf_prt = v_ht;
+                break;
+
+              case 0x0d:
+                srt_buf_prt = v_cr;
+                break;
+
+              case 0x0a:
+                srt_buf_prt = v_lf;
+                break;
+
+              case 0x1b:
+                srt_buf_prt = v_esc;
+                break;
+
+              case '\b':
+              case 0x7f:
+                srt_buf_prt = v_bs;
+                break;
+
+              default:
+                sprintf((char *)vbuf, "<0x%2x>", c);
+                srt_buf_prt = (char *)vbuf;
+                break;
+            }
+            add_srt_entry(srt_buf_prt);
+          }
+        }
+      }
+
       if (ioctl(fd, TIOCSTI, buf) < 0)
         exit(EXIT_FAILURE);
     }
@@ -894,9 +1414,9 @@ main(int argc, char * argv[])
   unsigned height = 0;
   pid_t    slave_pid;
 
-  char * log_file = NULL;
+  duration = default_duration;
 
-  while ((opt = my_getopt(argc, argv, "Vl:i:w:h:")) != -1)
+  while ((opt = my_getopt(argc, argv, "Vl:s:i:w:h:k:m:d:")) != -1)
   {
     switch (opt)
     {
@@ -908,6 +1428,10 @@ main(int argc, char * argv[])
         log_file = strdup(my_optarg);
         break;
 
+      case 's':
+        srt_file = strdup(my_optarg);
+        break;
+
       case 'i':
         fdc = open(my_optarg, O_RDONLY);
         if (fdc == -1)
@@ -915,6 +1439,12 @@ main(int argc, char * argv[])
           msg(WARN, "Cannot open %s\n", my_optarg);
           usage(argv[0]);
         }
+        break;
+
+      case 'd':
+        duration = atoi(my_optarg);
+        if (duration <= 0)
+          duration = default_duration;
         break;
 
       case 'w':
@@ -955,6 +1485,9 @@ main(int argc, char * argv[])
 
   if (log_file == NULL)
     log_file = "ptylog";
+
+  if (srt_file == NULL)
+    srt_file = "ptylog.srt";
 
   fdl = open(log_file, O_RDWR | O_CREAT | O_TRUNC,
              S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
