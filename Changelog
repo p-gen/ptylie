@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Jul 29 13:30:00 UTC 2018 - p.gen.progs@gmail.com
+
+- Version 0.2
+* Add the generation of .srt subtitles files
+* Code rework
+* Bug fixes
+-------------------------------------------------------------------
 Mon May 21 20:54:26 UTC 2018 - p.gen.progs@gmail.com
 
 - Version 0.1
