@@ -52,7 +52,8 @@ Use it as you would with configure.
 Synopsis
 --------
 | ``ptylie [-V] [-l log_file] [-w terminal_width] [-h terminal_height]``
-| ``[-i command_file] program_to_launch program_arguments``
+| ``[-i command_file] [-s srt_file] [-d subtitle_duration]``
+| ``program_to_launch program_arguments``
 
 command_file
 ------------
@@ -72,7 +73,7 @@ Some extra special sequences are also understood:
 :``\u[hh...]``:
     injects a sequence of up to 4 hexadecimal numbers (UTF-8).
 :``\x[hh...]``:
-    injects a sequence of up to 128 characters (each coded on 2
+    injects a sequence of up to 256 characters (each coded on 2
     hexadecimal positions).
 :``\W[XxY]``:
     resizes the slave's terminal to **X** columns and **Y** lines.
@@ -92,7 +93,33 @@ Some extra special sequences are also understood:
     injects the character **c** preceded by an escape (0x1b).
     This sequence is generated when the ALT key is used.
 :``\m[file]``:
-    use another map file for the subtitles, see below.
+    sets another map file to be used by the subtitles generation,
+    see below.
 :``\k``:
-    active/deactivate the subtitle generation
+    activates/deactivates the subtitle generation. If this command is
+    used a ``.srt`` file is generated (named ``ptylog.srt`` by default,
+    see the ``-s`` option).
 
+Map files
+---------
+These files are ASCII files used by the subtitles generation mechanism
+and contain lines formed by two or more fields.
+
+The first field must contain an byte sequences and the next fields form
+the text that will be associated with this sequence.
+
+This text will be output as a subtitle each time the byte sequence
+is seen.
+
+Map file example:
+
+| ---8<---
+| ``h \ue28690``
+| ``k \ue28691``
+| ``l \ue28692``
+| ``j \ue28693``
+| ``J \ue2879f``
+| ``K \ue2879e``
+| ``\u0b Ctrl Home (Ctrl \ue28696)``
+| ``\u0a Ctrl End``
+| ---8<---
