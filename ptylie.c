@@ -991,10 +991,10 @@ inject_keys(void * args)
 
               while (!feof(map))
               {
-                fscanf(map, "%255[^\n]", line);
+                fscanf(map, "%255[^\n]\n", line);
                 line[255] = '\0';
 
-                if (sscanf(line, "%255[^\n] %255[^\n]", key, repl) != 2)
+                if (sscanf(line, "%255[^ ] %255[^\n]\n", key, repl) != 2)
                   continue;
                 else
                 {
