@@ -1416,7 +1416,7 @@ main(int argc, char * argv[])
 
   duration = default_duration;
 
-  while ((opt = my_getopt(argc, argv, "Vl:s:i:w:h:k:m:d:")) != -1)
+  while ((opt = my_getopt(argc, argv, "Vl:s:i:w:h:d:")) != -1)
   {
     switch (opt)
     {
