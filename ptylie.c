@@ -882,7 +882,7 @@ inject_keys(void * args)
         buf[0] = c;
         mb_len = mb_get_length(c);
 
-        if (len > 1)
+        if (mb_len > 1)
           for (i = 1; i <= mb_len - 1; i++)
           {
             rc = read(fdc, &data, 1);
