@@ -243,7 +243,7 @@ add_srt_entry(char * buf)
   ms2 = etime - h2 * 3600000 - m2 * 60000 - s2 * 1000;
 
   fprintf(srt,
-          "%d\n"
+          "%u\n"
           "%02d:%02d:%02ld,%03ld --> "
           "%02d:%02d:%02ld,%03ld\n"
           "%s\n\n",
