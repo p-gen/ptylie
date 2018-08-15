@@ -99,6 +99,8 @@ Some extra special sequences are also understood:
     activates/deactivates the subtitle generation. If this command is
     used a ``.srt`` file is generated (named ``ptylog.srt`` by default,
     see the ``-s`` option).
+:``\T``:
+    injects the terminfo bytes sequence given as arguments (ex: home).
 
 Map files
 ---------

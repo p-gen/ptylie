@@ -17,6 +17,7 @@ AM_PROG_CC_C_O
 
 # Checks for libraries.
 AC_CHECK_LIB([pthread], [pthread_create])
+AC_SEARCH_LIBS([tgetent], [tinfo curses ncursesw ncurses], [HAVE_CURSES=True])
 
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h stdlib.h string.h sys/ioctl.h sys/time.h termios.h unistd.h utmp.h])

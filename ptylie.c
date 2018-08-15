@@ -20,6 +20,7 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <term.h>
 #include <unistd.h>
 
 #include "tree.h"
@@ -877,29 +878,30 @@ inject_keys(void * args)
       }
       else
       {
-        int i, mb_len;
+        int i;
 
         buf[0] = c;
-        mb_len = mb_get_length(c);
+        l      = mb_get_length(c);
 
-        if (mb_len > 1)
-          for (i = 1; i <= mb_len - 1; i++)
+        if (l > 1)
+        {
+          int bread;
+          int bsofar = 0;
+          do
           {
-            rc = read(fdc, &data, 1);
-            if (rc == 0 || rc == -1)
-              break;
-
-            c      = (unsigned char)data;
-            buf[i] = c;
-          }
-
-        l = mb_len;
+            bread = read(fdc, &buf[bsofar + 1], l - 1 - bsofar);
+            bsofar += bread;
+          } while (bsofar < l - 1 && bread > 0);
+        }
       }
     }
     else
     {
       l       = 1;
       special = 0;
+      char * v[10 + 1];
+      long   q[9];
+
       switch (c)
       {
         case '\n':
@@ -1016,10 +1018,11 @@ inject_keys(void * args)
         break;
 
         case 'x': /* Arbitrary hexadecimal sequence (max 256) */
-          format = "[%256[0-9a-fA-F]]%n";
-
         case 'u': /* for raw hexadecimal UTF-8 injection \u[xx[yy[zz[tt]]]]*/
-          format = "[%8[0-9a-fA-F]]%n";
+          if (c == 'x')
+            format = "[%256[0-9a-fA-F]]%n";
+          else
+            format = "[%8[0-9a-fA-F]]%n";
 
           get_arg(fdc, scanf_buf, &len);
           n = sscanf((char *)scanf_buf, format, tmp, &l);
@@ -1041,6 +1044,64 @@ inject_keys(void * args)
           memcpy(buf, tmp, l);
 
           break;
+
+        case 'T':
+        {
+          char * p;
+          int    i = 0, j;
+
+          get_arg(fdc, scanf_buf, &len);
+          n = sscanf((char *)scanf_buf, "[%256[^]]]", tmp);
+          for (p = tmp; i < 10;)
+          {
+            while (isspace(*(unsigned char *)p))
+              p++;
+            if (*p == '\0')
+              break;
+            v[i++] = p;
+            while (!isspace(*(unsigned char *)p) && *p != '\0')
+              ++p;
+            if (*p == '\0')
+              break;
+            *p++ = '\0';
+          }
+          v[i] = NULL;
+
+          if ((p = (char *)tigetstr(v[0])) != (char *)-1)
+          {
+            char * end;
+
+            if (p == NULL)
+            {
+              buf[0] = '\0';
+              l      = 0;
+              break;
+            }
+            else
+            {
+              q[0] = q[1] = q[2] = q[3] = q[4] = q[5] = q[6] = q[7] = q[8] = 0L;
+
+              for (j = 1; j < i - 2; j++)
+              {
+                if (v[j] != NULL)
+                {
+                  q[j - 1] = strtol(v[j], &end, 0);
+                  if (*end != '\0')
+                    q[j - 1] = (long)v[j];
+                }
+              }
+              strcpy(buf, tparm(p, q[0], q[1], q[2], q[3], q[4], q[5], q[6],
+                                q[7], q[8]));
+              l = strlen(buf);
+            }
+          }
+          else
+          {
+            buf[0] = '\0';
+            l      = 0;
+          }
+        }
+        break;
 
         case 'c': /* colour setting \c[x;y;z] */
           buf[0] = 0x1b;
@@ -1130,16 +1191,26 @@ inject_keys(void * args)
       }
     }
 
+    /* Wait for an empty input queue to continue */
+    /* ''''''''''''''''''''''''''''''''''''''''' */
+    {
+      int chars;
+
+      ioctl(fd, FIONREAD, &chars);
+      while (chars > 1)
+      {
+        nanosleep((const struct timespec[]){ { 0, 50000L } }, NULL);
+        ioctl(fd, FIONREAD, &chars);
+      }
+    }
+
     if (l > 1)
     {
-      tmp[1] = '\0';
-      for (i = 0; i < l; i++)
-      {
-        tmp[0] = buf[i];
-
-        if (ioctl(fd, TIOCSTI, tmp) < 0)
+      unsigned char * p;
+      for (p = buf; *p; p++)
+        if (ioctl(fd, TIOCSTI, p) < 0)
           exit(EXIT_FAILURE);
-      }
+
       if (srt_on)
       {
         if (*vbuf != '\0')
@@ -1199,19 +1270,6 @@ inject_keys(void * args)
 
       if (ioctl(fd, TIOCSTI, buf) < 0)
         exit(EXIT_FAILURE);
-    }
-
-    /* Wait for an empty input queue to continue */
-    /* ''''''''''''''''''''''''''''''''''''''''' */
-    {
-      int chars;
-
-      ioctl(fd, FIONREAD, &chars);
-      while (chars > 1)
-      {
-        nanosleep((const struct timespec[]){ { 0, 50000L } }, NULL);
-        ioctl(fd, FIONREAD, &chars);
-      }
     }
 
     /* inter injection loop 1/20 s min to leave the application */
@@ -1301,6 +1359,8 @@ slave(int fd_slave, char ** argv)
   /* Set the effective uid from the real uid. */
   /* """""""""""""""""""""""""""""""""""""""" */
   seteuid(getuid());
+
+  setupterm((char *)0, 1, (int *)0);
 
   /* Program execution with its arguments */
   /* """""""""""""""""""""""""""""""""""" */
@@ -1498,7 +1558,7 @@ main(int argc, char * argv[])
 
   /* Open the slave side of the PTY */
   /* """""""""""""""""""""""""""""" */
-  fd_slave = open(ptsname(fd_master), O_RDWR);
+  fd_slave = open(ptsname(fd_master), O_RDWR | O_APPEND);
 
   /* Initialize the terminal */
   /* """"""""""""""""""""""" */
