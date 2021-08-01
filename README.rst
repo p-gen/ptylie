@@ -14,7 +14,7 @@ Start a program in a pseudo terminal and:
 The PTY part of this programm is originally by Rachid Koucha 
 enhanced by Lars Brinhoff and Pierre Gentile for use in this program.
 
-| http://rachid.koucha.free.fr/tech_corner/pty_pdip.html
+| http://rkoucha.fr/tech_corner/pty_pdip.html
 | https://github.com/larsbrinkhoff/pty-stdio
 
 |
