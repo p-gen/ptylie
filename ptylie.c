@@ -47,6 +47,15 @@ stk_push(stk_t * stack, int fd);
 int
 stk_pop(stk_t * stack);
 
+static void
+tv_norm(struct timeval * tv);
+
+static void
+tv_add(struct timeval * tv1, struct timeval * tv2);
+
+static void
+tv_sub(struct timeval * tv1, struct timeval * tv2);
+
 void
 usage(char * prog);
 
@@ -121,6 +130,10 @@ char * my_optarg;     /* global argument pointer. */
 int    my_optind = 0; /* global argv index. */
 int    my_opterr = 1; /* for compatibility, should error be printed? */
 int    my_optopt;     /* for compatibility, option character checked */
+
+struct timeval srt_offset  = { 0 };
+long           offset      = 0;
+int            offset_sign = 1;
 
 enum
 {
@@ -204,14 +217,85 @@ stk_pop(stk_t * stack)
   return stack->stack[stack->nb];
 }
 
-/* init the timer */
+/* ----------------------------- */
+/* Timeval management functions. */
+/* ----------------------------- */
+
+/* ==================================== */
+/* Ensures that 0 <= tv_usec < 1000000. */
+/* ==================================== */
+static void
+tv_norm(struct timeval * tv)
+{
+  if (tv->tv_usec >= 1000000)
+  {
+    tv->tv_sec += tv->tv_usec / 1000000;
+    tv->tv_usec %= 1000000;
+  }
+  else if (tv->tv_usec < 0)
+  {
+    tv->tv_usec = 0;
+  }
+}
+
+/* ======================= */
+/* timeval add tv2 to tv1. */
+/* ======================= */
+static void
+tv_add(struct timeval * tv1, struct timeval * tv2)
+{
+  /* Ensures that 0 <= usec < 1000000. */
+  /* """"""""""""""""""""""""""""""""" */
+  tv_norm(tv1);
+  tv_norm(tv2);
+
+  tv1->tv_sec += tv2->tv_sec;
+  tv1->tv_usec += tv2->tv_usec;
+
+  if (tv1->tv_usec >= 1000000)
+  {
+    tv1->tv_sec++;
+    tv1->tv_usec -= 1000000;
+  }
+}
+
+/* ========================= */
+/* timeval sub tv2 from tv1. */
+/* ========================= */
+static void
+tv_sub(struct timeval * tv1, struct timeval * tv2)
+{
+  /* Ensures that 0 <= usec < 1000000. */
+  /* """"""""""""""""""""""""""""""""" */
+  tv_norm(tv1);
+  tv_norm(tv2);
+
+  tv1->tv_sec -= tv2->tv_sec;
+  tv1->tv_usec -= tv2->tv_usec;
+
+  if (tv1->tv_usec < 0)
+  {
+    tv1->tv_sec--;
+    tv1->tv_usec += 1000000;
+  }
+}
+
+/* =============== */
+/* init the timer. */
+/* =============== */
 void
 init_etime(void)
 {
   gettimeofday(&first, NULL);
+  if (offset_sign > 0)
+    tv_sub(&first, &srt_offset);
+  else
+    tv_add(&first, &srt_offset);
 }
 
-/* return elapsed seconds since call to init_etime */
+/* ================================================ */
+/* return elapsed seconds since call to init_etime. */
+/* ================================================ */
 void
 add_srt_entry(char * buf)
 {
@@ -808,8 +892,6 @@ inject_keys(void * args)
 
   stk_init(&fd_stack);
 
-  init_etime();
-
   /* Sleep for 1/10 s to let a chance to the child program to start.  */
   /* If it is not enough you can always begin the command file with a */
   /* appropriate sleep directive (\S[...].                            */
@@ -1280,9 +1362,9 @@ inject_keys(void * args)
 
     /* default to 1/20 s when sleep_time is set to 0 */
     /* ''''''''''''''''''''''''''''''''''''''''''''''' */
-    if (sleep_time < 50)
+    if (sleep_time < 20)
     {
-      sleep_time   = 50;
+      sleep_time   = 20;
       sleep_time_s = 0;
       sleep_time_n = 50000000L;
     }
@@ -1306,6 +1388,8 @@ master(int fd_master, int fd_slave, int fdl, int fdc)
 
   struct args_s args1 = { fd_master, fdl };
   struct args_s args2 = { fd_slave, fdc };
+
+  init_etime();
 
   pthread_create(&t1, NULL, manage_io, &args1);
   pthread_create(&t2, NULL, inject_keys, &args2);
@@ -1476,7 +1560,7 @@ main(int argc, char * argv[])
 
   duration = default_duration;
 
-  while ((opt = my_getopt(argc, argv, "Vl:s:i:w:h:d:")) != -1)
+  while ((opt = my_getopt(argc, argv, "Vl:s:i:w:h:d:o:")) != -1)
   {
     switch (opt)
     {
@@ -1505,6 +1589,18 @@ main(int argc, char * argv[])
         duration = atoi(my_optarg);
         if (duration <= 0)
           duration = default_duration;
+        break;
+
+      case 'o':
+        offset = atol(my_optarg);
+        if (offset < 0)
+        {
+          offset      = -offset;
+          offset_sign = -1;
+        }
+        srt_offset.tv_sec  = offset / 1000;
+        srt_offset.tv_usec = (offset - srt_offset.tv_sec * 1000) * 1000;
+
         break;
 
       case 'w':
